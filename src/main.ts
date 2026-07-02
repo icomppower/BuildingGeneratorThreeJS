@@ -1,58 +1,46 @@
 import {
-  ACESFilmicToneMapping, AmbientLight, BoxGeometry, Color, DirectionalLight,
-  Fog, Group, Mesh, MeshStandardMaterial, PCFShadowMap, PerspectiveCamera,
-  PlaneGeometry, Scene, SRGBColorSpace, WebGLRenderer,
+  ACESFilmicToneMapping, BoxGeometry, Clock, Group, Mesh,
+  MeshStandardMaterial, PerspectiveCamera, PlaneGeometry, Scene, SRGBColorSpace,
+  Vector3, WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import GUI from "lil-gui";
 import { defaultParams, type BuildingParams } from "./params";
 import { generateBuilding } from "./generator";
 import { Kit } from "./kit";
+import { Environment, type Bounds } from "./environment";
+import { CinematicCamera, type PresetName } from "./cinematicCamera";
+import { PostFX } from "./postfx";
 
 const app = document.getElementById("app")!;
-const renderer = new WebGLRenderer({ antialias: true });
+const renderer = new WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = PCFShadowMap;
 renderer.toneMapping = ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.3;
+renderer.toneMappingExposure = 1.15;
 renderer.outputColorSpace = SRGBColorSpace;
 app.appendChild(renderer.domElement);
 
 const scene = new Scene();
-scene.background = new Color(0x201612);
-scene.fog = new Fog(0x201612, 40, 140);
 
-const camera = new PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 500);
-camera.position.set(10, 6, 12);
+const camera = new PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 2000);
+camera.position.set(12, 7, 14);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 3.5, 0);
 controls.enableDamping = true;
-controls.maxPolarAngle = Math.PI * 0.52;
+controls.dampingFactor = 0.06;
+controls.maxPolarAngle = Math.PI * 0.54; // keep the camera above the ground plane
+controls.minDistance = 3;
+controls.maxDistance = 120;
 
-// lighting: warm key + cool ambient, evening Hong Kong mood
-const sun = new DirectionalLight(0xffe0b3, 2.2);
-sun.position.set(18, 24, 10);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -14;
-sun.shadow.camera.right = 14;
-sun.shadow.camera.top = 16;
-sun.shadow.camera.bottom = -4;
-sun.shadow.camera.far = 80;
-sun.shadow.bias = -0.0004;
-scene.add(sun);
-scene.add(new AmbientLight(0x8fa3c0, 0.75));
-const fill = new DirectionalLight(0x6f87b8, 0.5);
-fill.position.set(-12, 10, -14);
-scene.add(fill);
+// realistic lighting + sky + PBR environment
+const env = new Environment(scene, renderer);
 
 // ground
 const ground = new Mesh(
-  new PlaneGeometry(300, 300),
-  new MeshStandardMaterial({ color: 0x22262c, roughness: 0.95 }),
+  new PlaneGeometry(600, 600),
+  new MeshStandardMaterial({ color: 0x2b2926, roughness: 0.96, metalness: 0 }),
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
@@ -73,14 +61,20 @@ function buildLowPolyShell(p: BuildingParams): Group {
   const g = new Group();
   const body = new Mesh(new BoxGeometry(p.length, p.width, p.floor), shellMat);
   body.position.set(0, 0, p.floor / 2);
-  const roof = new Mesh(new BoxGeometry(p.length + 0.4, p.width + 1.0, 0.4), shellMat);
-  roof.position.set(0, 0, p.floor + 0.15);
-  for (const m of [body, roof]) {
+  const roofSlab = new Mesh(new BoxGeometry(p.length + 0.4, p.width + 1.0, 0.4), shellMat);
+  roofSlab.position.set(0, 0, p.floor + 0.15);
+  for (const m of [body, roofSlab]) {
     m.castShadow = true;
     m.receiveShadow = true;
     g.add(m);
   }
   return g;
+}
+
+/** world-space bounds of the current building, for camera framing + shadow fitting */
+function getBounds(): Bounds {
+  const h = params.floor + 0.4;
+  return { center: new Vector3(0, h / 2, 0), radius: 0.5 * Math.hypot(params.length, params.width, h) };
 }
 
 function regenerate(): void {
@@ -95,10 +89,35 @@ function regenerate(): void {
     ? buildLowPolyShell(params)
     : kit.buildGroup(generateBuilding(params, kit));
   root.add(building);
+  env.frame(getBounds());
 }
 
-// UI — mirrors the 18 node-group inputs
-const gui = new GUI({ title: "build system" });
+// cinematic camera + post fx
+const cine = new CinematicCamera(camera, controls, getBounds);
+const post = new PostFX(renderer, scene, camera);
+post.setFocusSource(() => camera.position.distanceTo(controls.target));
+
+// ---- GUI ----
+const gui = new GUI({ title: "hong kong building" });
+
+const cam = gui.addFolder("camera");
+const camActions = {
+  view: "hero" as PresetName,
+  autoOrbit: false,
+};
+cam.add(camActions, "view", ["hero", "front", "street", "aerial", "corner"])
+  .name("shot").onChange((v: PresetName) => cine.goTo(v));
+const orbitCtrl = cam.add(camActions, "autoOrbit").name("auto-orbit")
+  .onChange((v: boolean) => (cine.auto = v));
+cam.add(cine, "autoSpeed", 1, 30, 1).name("orbit speed");
+cine.onUserInteract = () => {
+  camActions.autoOrbit = false;
+  orbitCtrl.updateDisplay();
+};
+
+env.addGui(gui);
+post.addGui(gui);
+
 const dims = gui.addFolder("dimensions");
 dims.add(params, "floor", 3, 14, 1);
 dims.add(params, "length", 2, 16, 1);
@@ -116,15 +135,21 @@ probs.add(params, "roofOnStore", 0, 1, 0.01).name("roof on store");
 probs.add(params, "objectOnGround", 0, 1, 0.01).name("ground objects");
 probs.add(params, "storeSign", 0, 1, 0.01).name("store sign");
 probs.add(params, "objectOnRoof", 0, 1, 0.01).name("roof objects");
+probs.close();
 const misc = gui.addFolder("misc");
 misc.add(params, "randomise", 0, 1000, 1).name("seed");
 misc.add(params, "lowPoly").name("low poly");
-gui.onChange(() => regenerate());
+misc.close();
 
-// dev hooks: window.__setParams({...}) regenerates; window.__setCamera(px,py,pz, tx,ty,tz)
+// regenerate only for build-parameter folders (camera/lighting/post have their own handlers)
+for (const folder of [dims, probs, misc]) folder.onChange(() => regenerate());
+
+// dev hooks for headless verification
 const devWindow = window as unknown as {
   __setParams?: (p: Partial<BuildingParams>) => void;
   __setCamera?: (px: number, py: number, pz: number, tx: number, ty: number, tz: number) => void;
+  __shot?: (name: PresetName) => void;
+  __setEnv?: (s: Partial<Environment["settings"]>) => void;
 };
 devWindow.__setParams = p => {
   Object.assign(params, p);
@@ -132,14 +157,23 @@ devWindow.__setParams = p => {
   regenerate();
 };
 devWindow.__setCamera = (px, py, pz, tx, ty, tz) => {
+  cine.auto = false;
   camera.position.set(px, py, pz);
   controls.target.set(tx, ty, tz);
   controls.update();
+};
+devWindow.__shot = name => cine.snap(name);
+devWindow.__setEnv = s => {
+  Object.assign(env.settings, s);
+  gui.controllersRecursive().forEach(c => c.updateDisplay());
+  env.refresh();
+  env.frame(getBounds());
 };
 
 kit.load("/assets/kit.glb", "/assets/kit_manifest.json").then(() => {
   document.getElementById("loading")?.remove();
   regenerate();
+  cine.snap("hero");
 }).catch(err => {
   const el = document.getElementById("loading");
   if (el) el.textContent = `FAILED TO LOAD KIT: ${err}`;
@@ -150,9 +184,13 @@ addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  post.setSize(innerWidth, innerHeight);
 });
 
+const clock = new Clock();
 renderer.setAnimationLoop(() => {
-  controls.update();
-  renderer.render(scene, camera);
+  const dt = Math.min(clock.getDelta(), 0.1);
+  cine.update(dt);
+  env.tick();
+  post.render();
 });

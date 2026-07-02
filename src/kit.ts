@@ -34,7 +34,7 @@ function buildMaterials(): Record<string, Material> {
     metalness: 1,
     emissiveMap: tex(loader, "/textures/Material_Emissive.png", true),
     emissive: new Color(0xffffff),
-    emissiveIntensity: 2.5,
+    emissiveIntensity: 1.4,
     side: DoubleSide,
   });
   const floor = new MeshStandardMaterial({
