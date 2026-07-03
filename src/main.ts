@@ -1,7 +1,8 @@
 import {
-  ACESFilmicToneMapping, BoxGeometry, Clock, DoubleSide, Group, Material, Mesh,
-  MeshBasicMaterial, MeshNormalMaterial, MeshStandardMaterial, PerspectiveCamera,
-  PlaneGeometry, Scene, SRGBColorSpace, Vector3, WebGLRenderer,
+  ACESFilmicToneMapping, BoxGeometry, Clock, Color, DoubleSide, Group, MathUtils,
+  Material, Mesh, MeshBasicMaterial, MeshNormalMaterial, MeshStandardMaterial,
+  PerspectiveCamera, PlaneGeometry, Scene, ShaderMaterial, SRGBColorSpace, Vector3,
+  WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import GUI from "lil-gui";
@@ -9,7 +10,6 @@ import { defaultParams, type BuildingParams } from "./params";
 import { generateBuilding } from "./generator";
 import { Kit } from "./kit";
 import { Environment, type Bounds } from "./environment";
-import { CinematicCamera, type PresetName } from "./cinematicCamera";
 import { PostFX } from "./postfx";
 import { createSnow } from "./snow";
 import { createSnowAccumUniforms, createSnowShellMaterial } from "./snowAccum";
@@ -187,42 +187,82 @@ function regenerate(): void {
   env.frame(getBounds());
 }
 
-// cinematic camera + post fx
-const cine = new CinematicCamera(camera, controls, getBounds);
+// cinematic post-processing (ported from SnowSystemThreeJS)
 const post = new PostFX(renderer, scene, camera);
-post.setFocusSource(() => camera.position.distanceTo(controls.target));
+
+// cinematic camera prefs — auto-orbit via OrbitControls, plus fov + letterbox
+const cine = { autoOrbit: false, orbitSpeed: 0.6, fov: 40, letterbox: false };
+controls.autoRotate = cine.autoOrbit;
+controls.autoRotateSpeed = cine.orbitSpeed;
+camera.fov = cine.fov;
+camera.updateProjectionMatrix();
+
+// letterbox bars (CSS overlay, styled in index.html)
+const barTop = document.getElementById("bar-top") as HTMLElement | null;
+const barBottom = document.getElementById("bar-bottom") as HTMLElement | null;
+function applyLetterbox(): void {
+  const h = cine.letterbox ? "8vh" : "0";
+  if (barTop) barTop.style.height = h;
+  if (barBottom) barBottom.style.height = h;
+}
+applyLetterbox();
+
+// focus-plane visualizer — a translucent grid shown at the DoF focus distance
+// while the Focus Distance slider is dragged, then fades out on its own
+const focusPlaneMat = new ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  side: DoubleSide,
+  uniforms: { uOpacity: { value: 0 }, uColor: { value: new Color(0x8fcfff) } },
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: /* glsl */ `
+    uniform float uOpacity; uniform vec3 uColor; varying vec2 vUv;
+    void main() {
+      vec2 grid = abs(fract(vUv * 12.0) - 0.5);
+      vec2 d = grid / fwidth(vUv * 12.0);
+      float line = 1.0 - clamp(min(d.x, d.y), 0.0, 1.0);
+      vec2 c = abs(vUv - 0.5);
+      float cross = step(c.x, 0.0015) + step(c.y, 0.0015);
+      float a = (line * 0.55 + 0.05 + cross * 0.9) * uOpacity;
+      if (a <= 0.001) discard;
+      gl_FragColor = vec4(uColor, a);
+    }
+  `,
+});
+const focusPlane = new Mesh(new PlaneGeometry(1, 1), focusPlaneMat);
+focusPlane.frustumCulled = false;
+focusPlane.visible = false;
+scene.add(focusPlane);
+
+let focusTimer = 0;
+const _focusDir = new Vector3();
+function showFocusPlane(): void {
+  focusTimer = 1.2;
+  focusPlane.visible = true;
+}
+function updateFocusPlane(dt: number): void {
+  if (focusTimer <= 0) {
+    if (focusPlane.visible) focusPlane.visible = false;
+    return;
+  }
+  focusTimer -= dt;
+  const dist = post.bokehUniforms["focus"].value;
+  camera.getWorldDirection(_focusDir);
+  focusPlane.position.copy(camera.position).addScaledVector(_focusDir, dist);
+  focusPlane.quaternion.copy(camera.quaternion);
+  const halfH = Math.tan(MathUtils.degToRad(camera.fov / 2)) * dist;
+  const halfW = halfH * camera.aspect;
+  focusPlane.scale.set(halfW * 2 * 0.92, halfH * 2 * 0.92, 1);
+  focusPlaneMat.uniforms.uOpacity.value = 0.9 * Math.min(1, focusTimer / 0.4);
+}
 
 // ---- GUI ----
 const gui = new GUI({ title: "hong kong building" });
 
-const cam = gui.addFolder("camera");
-const camActions = {
-  view: "hero" as PresetName,
-  autoOrbit: false,
-};
-cam.add(camActions, "view", ["hero", "front", "street", "aerial", "corner"])
-  .name("shot").onChange((v: PresetName) => cine.goTo(v));
-const orbitCtrl = cam.add(camActions, "autoOrbit").name("auto-orbit")
-  .onChange((v: boolean) => (cine.auto = v));
-cam.add(cine, "autoSpeed", 1, 30, 1).name("orbit speed");
-cine.onUserInteract = () => {
-  camActions.autoOrbit = false;
-  orbitCtrl.updateDisplay();
-};
-
-// cinematic letterbox bars (styled in index.html)
-const barTop = document.getElementById("bar-top") as HTMLElement | null;
-const barBottom = document.getElementById("bar-bottom") as HTMLElement | null;
-const cinePrefs = { letterbox: false };
-function applyLetterbox(): void {
-  const h = cinePrefs.letterbox ? "7vh" : "0";
-  if (barTop) barTop.style.height = h;
-  if (barBottom) barBottom.style.height = h;
-}
-cam.add(cinePrefs, "letterbox").name("letterbox").onChange(applyLetterbox);
-
 env.addGui(gui);
-post.addGui(gui);
 
 // ---- snow GUI (one master toggle, ported params from SnowSystemThreeJS) ----
 const fSnow = gui.addFolder("snow");
@@ -281,11 +321,40 @@ misc.close();
 // regenerate only for build-parameter folders (camera/lighting/post have their own handlers)
 for (const folder of [dims, probs, misc]) folder.onChange(() => regenerate());
 
+// --- 🎬 Cinematic (last in the list): Camera / Depth of Field / Effects ---
+const fCine = gui.addFolder("🎬 cinematic");
+const fCam = fCine.addFolder("Camera");
+fCam.add(cine, "autoOrbit").name("Auto Orbit").onChange((v: boolean) => (controls.autoRotate = v));
+fCam.add(cine, "orbitSpeed", -3, 3, 0.05).name("Orbit Speed").onChange((v: number) => (controls.autoRotateSpeed = v));
+fCam.add(cine, "fov", 18, 80, 1).name("Focal / FOV").onChange((v: number) => {
+  camera.fov = v;
+  camera.updateProjectionMatrix();
+});
+fCam.add(cine, "letterbox").name("Letterbox").onChange(applyLetterbox);
+
+const dofParams = { enabled: false };
+const fDof = fCine.addFolder("Depth of Field");
+fDof.add(dofParams, "enabled").name("Enable DoF").onChange((v: boolean) => (post.bokeh.enabled = v));
+fDof.add(post.bokehUniforms["focus"], "value", 1, 40, 0.1).name("Focus Distance").onChange(showFocusPlane);
+fDof.add(post.bokehUniforms["aperture"], "value", 0, 0.004, 0.00005).name("Aperture");
+fDof.add(post.bokehUniforms["maxblur"], "value", 0, 0.02, 0.0005).name("Max Blur");
+
+const fFx = fCine.addFolder("Effects");
+fFx.add(post.bloom, "strength", 0, 2, 0.01).name("Bloom");
+fFx.add(post.bloom, "radius", 0, 2, 0.01).name("Bloom Radius");
+fFx.add(post.bloom, "threshold", 0, 1, 0.01).name("Bloom Threshold");
+fFx.add(post.gradeUniforms["uGrain"], "value", 0, 0.25, 0.005).name("Film Grain");
+fFx.add(post.gradeUniforms["uVignette"], "value", 0, 1.5, 0.01).name("Vignette");
+fFx.add(post.gradeUniforms["uChroma"], "value", 0, 0.01, 0.0001).name("Chromatic Aberration");
+fFx.add(post.gradeUniforms["uContrast"], "value", 0.7, 1.6, 0.01).name("Contrast");
+fFx.add(post.gradeUniforms["uSaturation"], "value", 0, 2, 0.01).name("Saturation");
+fCine.close();
+
 // dev hooks for headless verification
 const devWindow = window as unknown as {
   __setParams?: (p: Partial<BuildingParams>) => void;
   __setCamera?: (px: number, py: number, pz: number, tx: number, ty: number, tz: number) => void;
-  __shot?: (name: PresetName) => void;
+  __shot?: (name?: string) => void;
   __setEnv?: (s: Partial<Environment["settings"]>) => void;
 };
 devWindow.__setParams = p => {
@@ -294,12 +363,12 @@ devWindow.__setParams = p => {
   regenerate();
 };
 devWindow.__setCamera = (px, py, pz, tx, ty, tz) => {
-  cine.auto = false;
+  controls.autoRotate = false;
   camera.position.set(px, py, pz);
   controls.target.set(tx, ty, tz);
   controls.update();
 };
-devWindow.__shot = name => cine.snap(name);
+devWindow.__shot = () => {}; // kept as a no-op for the snapshot tools
 (devWindow as { __debug?: (m: DebugMode) => void }).__debug = m => {
   debugMode = m;
   applyDebugLighting();
@@ -320,7 +389,10 @@ devWindow.__setEnv = s => {
 kit.load("/assets/kit.glb", "/assets/kit_manifest.json").then(() => {
   document.getElementById("loading")?.remove();
   regenerate();
-  cine.snap("hero");
+  // fixed 3/4 framing (snow-system style: fixed camera + OrbitControls)
+  camera.position.set(9, 5.5, 11);
+  controls.target.set(0, 3, 0);
+  controls.update();
 }).catch(err => {
   const el = document.getElementById("loading");
   if (el) el.textContent = `FAILED TO LOAD KIT: ${err}`;
@@ -337,11 +409,12 @@ addEventListener("resize", () => {
 const clock = new Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1);
-  cine.update(dt);
+  controls.update(); // drives damping + auto-orbit
   env.tick();
   if (snowState.enabled) {
     snowShared.uTime.value += dt; // drives flake fall + sparkle twinkle
     snow.update();
   }
-  post.render();
+  updateFocusPlane(dt);
+  post.render(dt);
 });
