@@ -75,7 +75,6 @@ interface GridCfg {
   roomsPick: [number, number];
   awningPick: [number, number];
   curtainPick: [number, number];
-  lightsPick: [number, number];
   acPick: [number, number];
   clothPick: [number, number];
   acFirstFloorCut: boolean;
@@ -122,11 +121,6 @@ function windowCellContent(p: BuildingParams, cfg: GridCfg, counts: KitCounts): 
   const [awningCells] = separate(cells, (_c, i) => randBool(p.roofProbability, i, seed));
   awningCells.forEach((c, j) =>
     emit(COL("roof.002", randInt(cfg.awningPick[0], cfg.awningPick[1], j, seed), counts), c, 0, 0, 0));
-
-  // interior lights
-  const [lightCells] = separate(cells, (_c, i) => randBool(p.lights, i, seed));
-  lightCells.forEach((c, j) =>
-    emit(COL("lights.001", randInt(cfg.lightsPick[0], cfg.lightsPick[1], j, seed), counts), c, 0, 0, 0));
 
   // AC units (front/back skip the first window row) and clotheslines
   const [eligible, belowCut] = cfg.acFirstFloorCut
@@ -293,7 +287,7 @@ export function generateBuilding(p: BuildingParams, counts: KitCounts): Placemen
   const cfgB: GridCfg = {
     n: p.length, yShift: -0.5,
     roomsPick: [0, 80], awningPick: [45, 125], curtainPick: [0, 101],
-    lightsPick: [0, 120], acPick: [50, 100], clothPick: [0, 113],
+    acPick: [50, 100], clothPick: [0, 113],
     acFirstFloorCut: true,
   };
   const windowsB = windowCellContent(p, cfgB, counts);
@@ -310,7 +304,7 @@ export function generateBuilding(p: BuildingParams, counts: KitCounts): Placemen
   const cfgA: GridCfg = {
     n: p.width, yShift: -0.1,
     roomsPick: [0, 101], awningPick: [0, 113], curtainPick: [0, 164],
-    lightsPick: [0, 89], acPick: [50, 200], clothPick: [0, 96],
+    acPick: [50, 200], clothPick: [0, 96],
     acFirstFloorCut: false,
   };
   const windowsA = windowCellContent(p, cfgA, counts);

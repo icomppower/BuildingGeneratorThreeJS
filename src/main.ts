@@ -244,29 +244,23 @@ function updateFocusPlane(dt: number): void {
 // ---- GUI ----
 const gui = new GUI({ title: "hong kong building" });
 
-// --- building settings (top of the list): dimensions / probabilities / misc ---
+// --- building settings (top of the list): every generator param, flat ---
 const fBuild = gui.addFolder("building settings");
-const dims = fBuild.addFolder("dimensions");
-dims.add(params, "floor", 3, 14, 1);
-dims.add(params, "length", 2, 16, 1);
-dims.add(params, "width", 2, 10, 1);
-const probs = fBuild.addFolder("probabilities");
-probs.add(params, "acUnit", 0, 1, 0.01).name("AC unit");
-probs.add(params, "roofProbability", 0, 1, 0.01).name("window awning");
-probs.add(params, "clothlineProbability", 0, 1, 0.01).name("clothline");
-probs.add(params, "lights", 0, 1, 0.01);
-probs.add(params, "windowType", 0, 1, 0.01).name("window type");
-probs.add(params, "windowOpenAmount", 0, 1, 0.01).name("window open");
-probs.add(params, "curtainClose", 0, 1, 0.01).name("curtain close");
-probs.add(params, "closedOpenStore", 0, 1, 0.01).name("open store");
-probs.add(params, "roofOnStore", 0, 1, 0.01).name("roof on store");
-probs.add(params, "objectOnGround", 0, 1, 0.01).name("ground objects");
-probs.add(params, "storeSign", 0, 1, 0.01).name("store sign");
-probs.add(params, "objectOnRoof", 0, 1, 0.01).name("roof objects");
-probs.close();
-const misc = fBuild.addFolder("misc");
-misc.add(params, "randomise", 0, 1000, 1).name("seed");
-misc.close();
+fBuild.add(params, "floor", 3, 14, 1);
+fBuild.add(params, "length", 2, 16, 1);
+fBuild.add(params, "width", 2, 10, 1);
+fBuild.add(params, "acUnit", 0, 1, 0.01).name("AC unit");
+fBuild.add(params, "roofProbability", 0, 1, 0.01).name("window awning");
+fBuild.add(params, "clothlineProbability", 0, 1, 0.01).name("clothline");
+fBuild.add(params, "windowType", 0, 1, 0.01).name("window type");
+fBuild.add(params, "windowOpenAmount", 0, 1, 0.01).name("window open");
+fBuild.add(params, "curtainClose", 0, 1, 0.01).name("curtain close");
+fBuild.add(params, "closedOpenStore", 0, 1, 0.01).name("open store");
+fBuild.add(params, "roofOnStore", 0, 1, 0.01).name("roof on store");
+fBuild.add(params, "objectOnGround", 0, 1, 0.01).name("ground objects");
+fBuild.add(params, "storeSign", 0, 1, 0.01).name("store sign");
+fBuild.add(params, "objectOnRoof", 0, 1, 0.01).name("roof objects");
+fBuild.add(params, "randomise", 0, 1000, 1).name("seed");
 // any building-settings change regenerates the mesh
 fBuild.onChange(() => regenerate());
 
