@@ -1,7 +1,7 @@
 import {
-  ACESFilmicToneMapping, BoxGeometry, Clock, Group, Mesh,
-  MeshStandardMaterial, PerspectiveCamera, PlaneGeometry, Scene, SRGBColorSpace,
-  Vector3, WebGLRenderer,
+  ACESFilmicToneMapping, BoxGeometry, Clock, DoubleSide, Group, Material, Mesh,
+  MeshBasicMaterial, MeshNormalMaterial, MeshStandardMaterial, PerspectiveCamera,
+  PlaneGeometry, Scene, SRGBColorSpace, Vector3, WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import GUI from "lil-gui";
@@ -79,6 +79,65 @@ function getBounds(): Bounds {
   return { center: new Vector3(0, h / 2, 0), radius: 0.5 * Math.hypot(params.length, params.width, h) };
 }
 
+// ---- debug isolation modes (root-cause hunting, driven via window.__debug) ----
+// "albedo":  unlit textures — if facades differ here, the difference is in the texture
+// "normals": MeshNormalMaterial — visualizes geometry normals; inverted/mirrored
+//            normals show up as wrong colors
+// "uniform": white uniform ambient only — if facades match here, the difference is
+//            the directional/colored light rig
+type DebugMode = "off" | "albedo" | "normals" | "uniform";
+let debugMode: DebugMode = "off";
+const albedoCache = new Map<Material, Material>();
+const normalViewMat = new MeshNormalMaterial({ side: DoubleSide });
+const lightDefaults = {
+  key: 3.0, fill: 0.6, rim: 120, ambColor: 0x223044, amb: 0.4,
+};
+
+function applyDebugMaterials(g: Group): void {
+  if (debugMode !== "albedo" && debugMode !== "normals") return;
+  g.traverse(o => {
+    const mesh = o as Mesh;
+    if (!mesh.isMesh) return;
+    if (debugMode === "normals") {
+      mesh.material = normalViewMat;
+      return;
+    }
+    const orig = mesh.material as MeshStandardMaterial;
+    let dbg = albedoCache.get(orig);
+    if (!dbg) {
+      dbg = new MeshBasicMaterial({
+        map: orig.map ?? null,
+        color: orig.map ? 0xffffff : (orig.color?.getHex() ?? 0xffffff),
+        side: DoubleSide,
+        transparent: orig.transparent,
+        opacity: orig.opacity,
+        alphaTest: orig.alphaTest,
+      });
+      albedoCache.set(orig, dbg);
+    }
+    mesh.material = dbg;
+  });
+}
+
+function applyDebugLighting(): void {
+  if (debugMode === "uniform") {
+    env.key.intensity = 0;
+    env.fill.intensity = 0;
+    env.rim.intensity = 0;
+    env.ambient.color.set(0xffffff);
+    env.ambient.intensity = 3.0;
+    scene.environmentIntensity = 0;
+    scene.fog = null;
+  } else {
+    env.key.intensity = lightDefaults.key;
+    env.fill.intensity = lightDefaults.fill;
+    env.rim.intensity = lightDefaults.rim;
+    env.ambient.color.set(lightDefaults.ambColor);
+    env.ambient.intensity = lightDefaults.amb;
+    env.refresh();
+  }
+}
+
 function regenerate(): void {
   if (building) {
     root.remove(building);
@@ -90,6 +149,7 @@ function regenerate(): void {
   building = params.lowPoly
     ? buildLowPolyShell(params)
     : kit.buildGroup(generateBuilding(params, kit));
+  applyDebugMaterials(building);
   root.add(building);
   env.frame(getBounds());
 }
@@ -165,6 +225,11 @@ devWindow.__setCamera = (px, py, pz, tx, ty, tz) => {
   controls.update();
 };
 devWindow.__shot = name => cine.snap(name);
+(devWindow as { __debug?: (m: DebugMode) => void }).__debug = m => {
+  debugMode = m;
+  applyDebugLighting();
+  regenerate();
+};
 devWindow.__setEnv = s => {
   Object.assign(env.settings, s);
   gui.controllersRecursive().forEach(c => c.updateDisplay());

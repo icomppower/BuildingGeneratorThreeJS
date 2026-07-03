@@ -8,6 +8,7 @@
  */
 import {
   Group, InstancedMesh, Matrix4, Mesh, Object3D, DoubleSide, Color,
+  BufferAttribute, BufferGeometry,
   MeshStandardMaterial, MeshPhysicalMaterial, Material, Texture, TextureLoader,
   SRGBColorSpace, NoColorSpace, RepeatWrapping,
 } from "three";
@@ -71,10 +72,52 @@ interface Manifest {
   objects: Record<string, unknown>;
 }
 
+const MIRROR_X = new Matrix4().makeScale(-1, 1, 1);
+
 export class Kit {
   private parts = new Map<string, Object3D>();
   private manifest!: Manifest;
   private warned = new Set<string>();
+  private mirrorCache = new Map<BufferGeometry, BufferGeometry>();
+
+  /**
+   * Geometry with the X-mirror baked in (negated positions/normals/tangents,
+   * reversed winding). Needed because InstancedMesh transforms normals with the
+   * plain instance matrix: a reflection (negative determinant) flips winding, and
+   * with DoubleSide the shader then negates the normal for "back" faces — so every
+   * mirrored instance would be lit with inverted normals. Baking the mirror into
+   * the geometry and cancelling it in the matrix keeps every determinant positive.
+   */
+  private mirroredGeometry(src: BufferGeometry): BufferGeometry {
+    let g = this.mirrorCache.get(src);
+    if (g) return g;
+    g = src.clone();
+    for (const name of ["position", "normal", "tangent"]) {
+      const attr = g.getAttribute(name) as BufferAttribute | undefined;
+      if (!attr) continue;
+      for (let i = 0; i < attr.count; i++) attr.setX(i, -attr.getX(i));
+      if (name === "tangent" && attr.itemSize === 4) {
+        for (let i = 0; i < attr.count; i++) attr.setW(i, -attr.getW(i));
+      }
+      attr.needsUpdate = true;
+    }
+    if (!g.index) {
+      const n = g.getAttribute("position").count;
+      const arr = n > 65535 ? new Uint32Array(n) : new Uint16Array(n);
+      for (let i = 0; i < n; i++) arr[i] = i;
+      g.setIndex(new BufferAttribute(arr, 1));
+    }
+    const idx = g.index!;
+    for (let i = 0; i + 2 < idx.count; i += 3) {
+      const b = idx.getX(i + 1);
+      idx.setX(i + 1, idx.getX(i + 2));
+      idx.setX(i + 2, b);
+    }
+    idx.needsUpdate = true;
+    g.computeBoundingSphere();
+    this.mirrorCache.set(src, g);
+    return g;
+  }
 
   count(collection: string): number {
     const c = this.manifest.collections[collection];
@@ -141,15 +184,28 @@ export class Kit {
         // multi-material primitives into separate meshes, so material is single)
         const rootInv = new Matrix4().copy(part.matrixWorld).invert();
         const meshLocal = rootInv.multiply(mesh.matrixWorld);
-        const im = new InstancedMesh(mesh.geometry, mesh.material as Material, matrices.length);
-        im.castShadow = true;
-        im.receiveShadow = true;
-        for (let i = 0; i < matrices.length; i++) {
-          tmp.copy(matrices[i]).multiply(meshLocal);
-          im.setMatrixAt(i, tmp);
+
+        // split instances by determinant sign: mirrored placements get the
+        // mirror baked into the geometry instead of the matrix (see mirroredGeometry)
+        const plain: Matrix4[] = [];
+        const mirrored: Matrix4[] = [];
+        for (const m of matrices) {
+          tmp.copy(m).multiply(meshLocal);
+          if (tmp.determinant() < 0) mirrored.push(tmp.clone().multiply(MIRROR_X));
+          else plain.push(tmp.clone());
         }
-        im.instanceMatrix.needsUpdate = true;
-        group.add(im);
+        for (const [geom, list] of [
+          [mesh.geometry, plain],
+          [mirrored.length ? this.mirroredGeometry(mesh.geometry) : null, mirrored],
+        ] as const) {
+          if (!geom || list.length === 0) continue;
+          const im = new InstancedMesh(geom, mesh.material as Material, list.length);
+          im.castShadow = true;
+          im.receiveShadow = true;
+          for (let i = 0; i < list.length; i++) im.setMatrixAt(i, list[i]);
+          im.instanceMatrix.needsUpdate = true;
+          group.add(im);
+        }
       });
     }
     return group;

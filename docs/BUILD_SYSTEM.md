@@ -142,6 +142,13 @@ alpha-blended, which breaks depth sorting at grazing angles. `src/kit.ts` builds
 building/floor/glass from `public/textures/` (opaque + emissive; floor uses alphaTest
 cutout; glass is the only blended material).
 
+**Normals**: the source objects carry Blender "Auto Smooth" custom split normals, which
+bake into the GLB and shade inconsistently per face (mottled walls, mismatched corners).
+This is geometry data — a material's `normalScale` (the normal *map*) cannot fix it.
+`tools/export_kit.py` drops the custom normals and rebuilds clean **angle-based** normals
+(sharp above ~35°, smooth below) via bmesh, so flat walls shade evenly while hard edges
+stay crisp. Fix it at export, not with a runtime `computeVertexNormals()`.
+
 ## Validation
 
 `tools/dump_truth.py` dumps every evaluated instance (name + world matrix) from the
