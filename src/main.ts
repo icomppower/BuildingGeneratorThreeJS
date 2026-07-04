@@ -594,6 +594,7 @@ const clock = new Clock();
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1);
   controls.update(); // drives damping + auto-orbit
+  if (camera.position.y < 0.2) camera.position.y = 0.2; // never let the camera go below the ground plane
   env.tick();
   if (snowState.enabled) {
     snowShared.uTime.value += dt; // drives flake fall + sparkle twinkle
