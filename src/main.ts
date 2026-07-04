@@ -77,6 +77,9 @@ const accumU = createSnowAccumUniforms(snowShared.uTime);
 kit.snowShellMaterial = createSnowShellMaterial(accumU);
 const snow = createSnow({ camera, shared: snowShared });
 snow.mesh.visible = false;
+// draw flakes on top of the building instead of being occluded by it
+snow.material.depthTest = false;
+snow.mesh.renderOrder = 10;
 scene.add(snow.mesh);
 
 const snowState = { enabled: false, density: 0.5 };
@@ -87,9 +90,15 @@ function applyWind(): void {
 }
 applyWind();
 function applySnowEnabled(v: boolean): void {
+  // snow and rain are mutually exclusive — turning one on turns the other off
+  if (v && rainState.enabled) {
+    rainState.enabled = false;
+    applyRainEnabled(false);
+  }
   snow.mesh.visible = v;
   const shell = building?.getObjectByName("snowShell");
   if (shell) shell.visible = v;
+  gui.controllersRecursive().forEach(c => c.updateDisplay());
 }
 
 // ---- rain: falling streaks (world space) + in-place wet accumulation on the ----
@@ -99,6 +108,9 @@ const rainShared = { uTime: { value: 0 }, uWind: { value: new Vector3(3, 0, 1) }
 const wetU = createWetUniforms(rainShared.uTime, rainShared.uWind);
 const rain = createRain({ camera, shared: rainShared });
 rain.mesh.visible = false;
+// draw streaks on top of the building instead of being occluded by it
+rain.material.depthTest = false;
+rain.mesh.renderOrder = 10;
 scene.add(rain.mesh);
 
 const rainState = { enabled: false, density: 0.4 };
@@ -109,8 +121,14 @@ function applyRainWind(): void {
 }
 applyRainWind();
 function applyRainEnabled(v: boolean): void {
+  // snow and rain are mutually exclusive — turning one on turns the other off
+  if (v && snowState.enabled) {
+    snowState.enabled = false;
+    applySnowEnabled(false);
+  }
   rain.mesh.visible = v;
   wetU.uWet.value = v ? 1 : 0; // master gate: building dries out when rain is off
+  gui.controllersRecursive().forEach(c => c.updateDisplay());
 }
 
 /** world-space bounds of the current building, for camera framing + shadow fitting */
