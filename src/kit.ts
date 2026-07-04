@@ -82,6 +82,9 @@ export class Kit {
   private manifest!: Manifest;
   private warned = new Set<string>();
   private mirrorCache = new Map<BufferGeometry, BufferGeometry>();
+  /** dry (non-wet) clones of building/floor for interior parts — main.ts injects the
+   *  rain wet shader into building/floor, and interiors (ROOMS/storeinside) must stay dry */
+  private dryMaterials = new Map<Material, Material>();
   /** the from-scratch materials (building / floor / glass), set during load() */
   materials!: Record<string, Material>;
   /** when set, buildGroup adds a snow-shell pass (child group "snowShell") that
@@ -152,6 +155,10 @@ export class Kit {
     // Blender exports "building", "floor", "glass")
     const materials = buildMaterials();
     this.materials = materials;
+    // dry clones for interior parts — cloned now (before main.ts injects the wet
+    // shader into building/floor), so they never pick up the rain wetness
+    this.dryMaterials.set(materials.building, materials.building.clone());
+    this.dryMaterials.set(materials.floor, materials.floor.clone());
     const fallback = materials.building;
     gltf.scene.traverse(o => {
       const mesh = o as Mesh;
@@ -184,8 +191,9 @@ export class Kit {
 
     const tmp = new Matrix4();
     for (const [key, matrices] of byPart) {
-      // interior parts (rooms / store interiors) never see the sky — no snow shell
-      const noSnow = key.includes("ROOMS") || key.includes("storeinside");
+      // interior parts (rooms / store interiors) never see the sky — no snow shell,
+      // and they use the dry material clone so the rain wetness skips them too
+      const interior = key.includes("ROOMS") || key.includes("storeinside");
       const part = this.parts.get(key);
       if (!part) {
         if (!this.warned.has(key)) {
@@ -216,7 +224,11 @@ export class Kit {
           [mirrored.length ? this.mirroredGeometry(mesh.geometry) : null, mirrored],
         ] as const) {
           if (!geom || list.length === 0) continue;
-          const im = new InstancedMesh(geom, mesh.material as Material, list.length);
+          // interior meshes render with the dry clone (falls back to the original for
+          // glass / anything not cloned) so the rain wet shader never touches them
+          const baseMat = mesh.material as Material;
+          const imMat = interior ? (this.dryMaterials.get(baseMat) ?? baseMat) : baseMat;
+          const im = new InstancedMesh(geom, imMat, list.length);
           im.name = key; // e.g. COL[roof][2] — used by the hover inspector
           im.castShadow = true;
           im.receiveShadow = true;
@@ -226,7 +238,7 @@ export class Kit {
 
           // snow shell pass for opaque kit materials: same geometry, SAME
           // instanceMatrix buffer — only the vertex shader extrudes it
-          if (this.snowShellMaterial && !noSnow &&
+          if (this.snowShellMaterial && !interior &&
               (mesh.material === this.materials.building || mesh.material === this.materials.floor)) {
             const shell = new InstancedMesh(geom, this.snowShellMaterial, list.length);
             shell.instanceMatrix = im.instanceMatrix;

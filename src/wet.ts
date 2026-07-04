@@ -50,7 +50,7 @@ export function createWetUniforms(uTime: { value: number }, uWind: { value: Vect
     uWaterDarkness: { value: 0.45 }, // wet-darkening of the albedo
     uPuddleRoughness: { value: 0.05 }, // gloss of standing water
     uRainRipple: { value: 0.05 },  // ripple strength on top puddles
-    uRippleScale: { value: 6.0 },
+    uRippleScale: { value: 12.0 },
     uRippleSpeed: { value: 1.3 },
     uRippleDensity: { value: 0.2 },
     // where the surface is wet vs dry — a blotchy FBM field in world XZ

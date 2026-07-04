@@ -430,8 +430,10 @@ const fAccum = fSnow.addFolder("accumulation");
 fAccum.add(accumU.uSnowCoverage, "value", 0, 1, 0.01).name("coverage");
 fAccum.add(accumU.uSnowScale, "value", 0.1, 4, 0.01).name("patch scale");
 fAccum.add(accumU.uSnowEdge, "value", 0.01, 0.4, 0.005).name("patch softness");
-fAccum.add(accumU.uSnowSeed.value, "x", -50, 50, 0.1).name("seed x");
-fAccum.add(accumU.uSnowSeed.value, "y", -50, 50, 0.1).name("seed y");
+fAccum.add(accumU.uSnowSeed.value, "x", -50, 50, 0.1).name("seed x").listen();
+fAccum.add(accumU.uSnowSeed.value, "y", -50, 50, 0.1).name("seed y").listen();
+fAccum.add({ randomize: () => accumU.uSnowSeed.value.set((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100) },
+  "randomize").name("🎲 randomize seed");
 fAccum.add(accumU.uSnowFlatThreshold, "value", 0, 1, 0.01).name("flatness");
 fAccum.addColor({ c: "#eaf1ff" }, "c").name("color").onChange((v: string) => accumU.uSnowColor.value.set(v));
 fAccum.add(accumU.uSnowRoughness, "value", 0.3, 1, 0.01).name("roughness");
