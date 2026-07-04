@@ -358,17 +358,17 @@
     {
      "index": 3,
      "kind": "COLLECTION",
-     "name": "prop_front 1.005"
+     "name": "prop_front 1.003"
     },
     {
      "index": 4,
      "kind": "COLLECTION",
-     "name": "prop_front 1.003"
+     "name": "prop_front 1.004"
     },
     {
      "index": 5,
      "kind": "COLLECTION",
-     "name": "prop_front 1.004"
+     "name": "prop_front 1.005"
     },
     {
      "index": 6,
@@ -493,92 +493,92 @@
     {
      "index": 1,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.007"
+     "name": "roof_prop 1.001"
     },
     {
      "index": 2,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.006"
+     "name": "roof_prop 1.002"
     },
     {
      "index": 3,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.008"
+     "name": "roof_prop 1.003"
     },
     {
      "index": 4,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.005"
+     "name": "roof_prop 1.004"
     },
     {
      "index": 5,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.004"
+     "name": "roof_prop 1.005"
     },
     {
      "index": 6,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.009"
+     "name": "roof_prop 1.006"
     },
     {
      "index": 7,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.003"
+     "name": "roof_prop 1.007"
     },
     {
      "index": 8,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.002"
+     "name": "roof_prop 1.008"
     },
     {
      "index": 9,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.011"
+     "name": "roof_prop 1.009"
     },
     {
      "index": 10,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.001"
+     "name": "roof_prop 1.010"
     },
     {
      "index": 11,
      "kind": "COLLECTION",
-     "name": "roof_prop 1.010"
+     "name": "roof_prop 1.011"
     },
     {
      "index": 12,
      "kind": "COLLECTION",
-     "name": "roof_prop 8"
+     "name": "roof_prop 11"
     },
     {
      "index": 13,
      "kind": "COLLECTION",
-     "name": "roof_prop 8.002"
+     "name": "roof_prop 11.001"
     },
     {
      "index": 14,
      "kind": "COLLECTION",
-     "name": "roof_prop 8.001"
+     "name": "roof_prop 11.002"
     },
     {
      "index": 15,
      "kind": "COLLECTION",
-     "name": "roof_prop 11"
+     "name": "roof_prop 13"
     },
     {
      "index": 16,
      "kind": "COLLECTION",
-     "name": "roof_prop 11.001"
+     "name": "roof_prop 8"
     },
     {
      "index": 17,
      "kind": "COLLECTION",
-     "name": "roof_prop 11.002"
+     "name": "roof_prop 8.001"
     },
     {
      "index": 18,
      "kind": "COLLECTION",
-     "name": "roof_prop 13"
+     "name": "roof_prop 8.002"
     }
    ]
   },
@@ -713,62 +713,62 @@
     {
      "index": 7,
      "kind": "COLLECTION",
-     "name": "steel window top preset 2.001"
+     "name": "steel window top preset 10.001"
     },
     {
      "index": 8,
      "kind": "COLLECTION",
-     "name": "steel window top preset 3.001"
+     "name": "steel window top preset 11.001"
     },
     {
      "index": 9,
      "kind": "COLLECTION",
-     "name": "steel window top preset 4.001"
+     "name": "steel window top preset 12.001"
     },
     {
      "index": 10,
      "kind": "COLLECTION",
-     "name": "steel window top preset 5.001"
+     "name": "steel window top preset 13.001"
     },
     {
      "index": 11,
      "kind": "COLLECTION",
-     "name": "steel window top preset 6.001"
+     "name": "steel window top preset 2.001"
     },
     {
      "index": 12,
      "kind": "COLLECTION",
-     "name": "steel window top preset 7.001"
+     "name": "steel window top preset 3.001"
     },
     {
      "index": 13,
      "kind": "COLLECTION",
-     "name": "steel window top preset 8.001"
+     "name": "steel window top preset 4.001"
     },
     {
      "index": 14,
      "kind": "COLLECTION",
-     "name": "steel window top preset 9.001"
+     "name": "steel window top preset 5.001"
     },
     {
      "index": 15,
      "kind": "COLLECTION",
-     "name": "steel window top preset 10.001"
+     "name": "steel window top preset 6.001"
     },
     {
      "index": 16,
      "kind": "COLLECTION",
-     "name": "steel window top preset 11.001"
+     "name": "steel window top preset 7.001"
     },
     {
      "index": 17,
      "kind": "COLLECTION",
-     "name": "steel window top preset 12.001"
+     "name": "steel window top preset 8.001"
     },
     {
      "index": 18,
      "kind": "COLLECTION",
-     "name": "steel window top preset 13.001"
+     "name": "steel window top preset 9.001"
     }
    ]
   },
@@ -850,22 +850,22 @@
     {
      "index": 0,
      "kind": "OBJECT",
-     "name": "store3"
+     "name": "store"
     },
     {
      "index": 1,
      "kind": "OBJECT",
-     "name": "store"
+     "name": "store1"
     },
     {
      "index": 2,
      "kind": "OBJECT",
-     "name": "store1"
+     "name": "store1.002"
     },
     {
      "index": 3,
      "kind": "OBJECT",
-     "name": "store1.002"
+     "name": "store3"
     }
    ]
   },
@@ -874,12 +874,12 @@
     {
      "index": 0,
      "kind": "OBJECT",
-     "name": "ground room2"
+     "name": "ground room1"
     },
     {
      "index": 1,
      "kind": "OBJECT",
-     "name": "ground room1"
+     "name": "ground room2"
     },
     {
      "index": 2,
@@ -917,12 +917,12 @@
     {
      "index": 1,
      "kind": "OBJECT",
-     "name": "WATERTANK.002"
+     "name": "WATERTANK.001"
     },
     {
      "index": 2,
      "kind": "OBJECT",
-     "name": "WATERTANK.001"
+     "name": "WATERTANK.002"
     }
    ]
   },
@@ -980,62 +980,62 @@
     {
      "index": 6,
      "kind": "COLLECTION",
-     "name": "window wood top preset 2.001"
+     "name": "window wood top preset 10.001"
     },
     {
      "index": 7,
      "kind": "COLLECTION",
-     "name": "window wood top preset 3.001"
+     "name": "window wood top preset 11.001"
     },
     {
      "index": 8,
      "kind": "COLLECTION",
-     "name": "window wood top preset 4.001"
+     "name": "window wood top preset 12.001"
     },
     {
      "index": 9,
      "kind": "COLLECTION",
-     "name": "window wood top preset 5.001"
+     "name": "window wood top preset 13.001"
     },
     {
      "index": 10,
      "kind": "COLLECTION",
-     "name": "window wood top preset 6.001"
+     "name": "window wood top preset 2.001"
     },
     {
      "index": 11,
      "kind": "COLLECTION",
-     "name": "window wood top preset 7.001"
+     "name": "window wood top preset 3.001"
     },
     {
      "index": 12,
      "kind": "COLLECTION",
-     "name": "window wood top preset 8.001"
+     "name": "window wood top preset 4.001"
     },
     {
      "index": 13,
      "kind": "COLLECTION",
-     "name": "window wood top preset 9.001"
+     "name": "window wood top preset 5.001"
     },
     {
      "index": 14,
      "kind": "COLLECTION",
-     "name": "window wood top preset 10.001"
+     "name": "window wood top preset 6.001"
     },
     {
      "index": 15,
      "kind": "COLLECTION",
-     "name": "window wood top preset 11.001"
+     "name": "window wood top preset 7.001"
     },
     {
      "index": 16,
      "kind": "COLLECTION",
-     "name": "window wood top preset 12.001"
+     "name": "window wood top preset 8.001"
     },
     {
      "index": 17,
      "kind": "COLLECTION",
-     "name": "window wood top preset 13.001"
+     "name": "window wood top preset 9.001"
     }
    ]
   },

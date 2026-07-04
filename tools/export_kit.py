@@ -86,9 +86,14 @@ for col_name in COLLECTIONS:
         print("MISSING COLLECTION:", col_name)
         manifest["collections"][col_name] = {"missing": True}
         continue
-    # geometry-nodes child order for Separate Children: sub-collections, then objects
-    children = [("COLLECTION", c) for c in col.children] + \
-               [("OBJECT", o) for o in col.objects
+    # CollectionInfo "Separate Children" emits children in NAME-sorted order (verified
+    # against the evaluated node graph), NOT raw col.objects order — so sort by name or
+    # the generator's index picks land on the wrong variant (e.g. storeinside had
+    # 'ground room2'/'ground room1' swapped, pairing the wrong room under each storefront).
+    # No collection mixes loose objects with sub-collections, so collections-then-objects
+    # never actually interleaves; sort each list independently by name.
+    children = [("COLLECTION", c) for c in sorted(col.children, key=lambda c: c.name)] + \
+               [("OBJECT", o) for o in sorted(col.objects, key=lambda o: o.name)
                 if o.parent is None or o.parent.name not in col.objects]
     entries = [export_collection_child(col_name, i, k, c) for i, (k, c) in enumerate(children)]
     manifest["collections"][col_name] = {"children": entries}
