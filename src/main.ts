@@ -75,7 +75,8 @@ const params: BuildingParams = defaultParams();
 let building: Group | null = null;
 
 // ---- Kowloon Walled City district mode: many micro-plots, packed dense, bridged ----
-const cityMode = { enabled: false };
+// on by default — this is the actual point of the project, not just the base generator
+const cityMode = { enabled: true };
 const cityParams: CityParams = defaultCityParams();
 let cityGroup: Group | null = null;
 let lastCityLayout: CityLayout | null = null;
@@ -672,10 +673,7 @@ kit.load(`${import.meta.env.BASE_URL}assets/kit.glb`, `${import.meta.env.BASE_UR
   applyWet(kit.materials.building, wetU);
   applyWet(kit.materials.floor, wetU);
   regenerate();
-  // fixed 3/4 framing (snow-system style: fixed camera + OrbitControls)
-  camera.position.set(9, 5.5, 11);
-  controls.target.set(0, 3, 0);
-  controls.update();
+  frameCameraForMode(cityMode.enabled);
 }).catch(err => {
   const el = document.getElementById("loading");
   if (el) el.textContent = `FAILED TO LOAD KIT: ${err}`;
