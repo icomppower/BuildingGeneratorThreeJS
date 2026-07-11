@@ -9,6 +9,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import GUI from "lil-gui";
 import { defaultParams, type BuildingParams } from "./params";
 import { generateBuilding } from "./generator";
+import {
+  defaultCityParams, generateCityLayout, generateCityPlacements, buildWalkways,
+  type CityParams, type CityLayout,
+} from "./city";
 import { Kit } from "./kit";
 import { Environment, type Bounds } from "./environment";
 import { PostFX } from "./postfx";
@@ -69,6 +73,49 @@ scene.add(root);
 const kit = new Kit();
 const params: BuildingParams = defaultParams();
 let building: Group | null = null;
+
+// ---- Kowloon Walled City district mode: many micro-plots, packed dense, bridged ----
+const cityMode = { enabled: false };
+const cityParams: CityParams = defaultCityParams();
+let cityGroup: Group | null = null;
+let lastCityLayout: CityLayout | null = null;
+const connectivityState = { readout: "—" };
+
+function updateConnectivityReadout(layout: CityLayout): void {
+  const c = layout.connectivity;
+  connectivityState.readout = c.fullyTraversable
+    ? `✓ all ${c.plotCount} reachable · ${c.edgeCount} walkways (${c.forcedCount} forced)`
+    : `✗ ${c.componentCount} islands · ${c.plotCount} buildings`;
+}
+
+function getCityBounds(layout: CityLayout): Bounds {
+  const span = (cityParams.gridSize - 1) * cityParams.cellSize + 10;
+  const maxFloor = layout.plots.reduce((m, p) => Math.max(m, p.params.floor), 3);
+  const h = maxFloor + 1;
+  return { center: new Vector3(0, h / 2, 0), radius: 0.55 * Math.hypot(span, span, h) };
+}
+
+function disposeGroup(g: Group): void {
+  g.traverse(o => {
+    const im = o as { isInstancedMesh?: boolean; dispose?: () => void };
+    if (im.isInstancedMesh) im.dispose?.();
+  });
+}
+
+/** pulls the camera back to frame the whole district (or back to the single-building
+ *  default) — called whenever city mode is toggled, from the GUI or a dev hook alike */
+function frameCameraForMode(cityOn: boolean): void {
+  if (cityOn && lastCityLayout) {
+    const b = getCityBounds(lastCityLayout);
+    const d = b.radius * 1.7;
+    camera.position.set(d * 0.55, b.center.y + d * 0.45, d * 0.75);
+    controls.target.set(0, b.center.y * 0.6, 0);
+  } else {
+    camera.position.set(9, 5.5, 11);
+    controls.target.set(0, 3, 0);
+  }
+  controls.update();
+}
 
 // ---- snow: falling flakes (world space) + accumulation shell on the building ----
 const snowShared = { uTime: { value: 0 }, uWind: { value: new Vector3(2, 0, 1) } };
@@ -198,16 +245,37 @@ function applyDebugLighting(): void {
 function regenerate(): void {
   if (building) {
     root.remove(building);
-    building.traverse(o => {
-      const im = o as { isInstancedMesh?: boolean; dispose?: () => void };
-      if (im.isInstancedMesh) im.dispose?.();
-    });
+    disposeGroup(building);
+    building = null;
   }
-  building = kit.buildGroup(generateBuilding(params, kit));
-  applyDebugMaterials(building);
-  root.add(building);
-  applySnowEnabled(snowState.enabled); // new snowShell group starts hidden
-  env.frame(getBounds());
+  if (cityGroup) {
+    root.remove(cityGroup);
+    disposeGroup(cityGroup);
+    cityGroup = null;
+  }
+
+  if (cityMode.enabled) {
+    const layout = generateCityLayout(cityParams);
+    lastCityLayout = layout;
+    cityGroup = kit.buildGroup(generateCityPlacements(layout, kit));
+    applyDebugMaterials(cityGroup);
+    cityGroup.add(buildWalkways(layout));
+    root.add(cityGroup);
+    updateConnectivityReadout(layout);
+    console.log(
+      `[walled city] ${layout.connectivity.plotCount} buildings, ` +
+      `${layout.connectivity.edgeCount} walkways (${layout.connectivity.forcedCount} forced) — ` +
+      `${layout.connectivity.fullyTraversable ? "fully traversable" : "DISCONNECTED"}`,
+    );
+    applySnowEnabled(snowState.enabled);
+    env.frame(getCityBounds(layout));
+  } else {
+    building = kit.buildGroup(generateBuilding(params, kit));
+    applyDebugMaterials(building);
+    root.add(building);
+    applySnowEnabled(snowState.enabled); // new snowShell group starts hidden
+    env.frame(getBounds());
+  }
 }
 
 // ---- mesh inspector: hover a mesh to outline it + read its name/polycount ----
@@ -263,9 +331,10 @@ function clearInspect(): void {
   tip.style.display = "none";
 }
 function updateInspect(): void {
-  if (!inspect.enabled || !pointerInside || !building) return clearInspect();
+  const target = cityGroup ?? building;
+  if (!inspect.enabled || !pointerInside || !target) return clearInspect();
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObject(building, true);
+  const hits = raycaster.intersectObject(target, true);
   const hit = hits.find(
     h => (h.object as InstancedMesh).isInstancedMesh && isPickable(h.object),
   );
@@ -397,6 +466,25 @@ fBuild.add(params, "randomise", 0, 1000, 1).name("seed");
 fBuild.onChange(ev => {
   if (ev.controller !== emissiveCtrl) regenerate();
 });
+
+// --- 🏙️ walled city: tiles the single-building generator across a dense, ----
+// jittered micro-plot grid (footprints overlap/fuse instead of the generator's
+// normal isolated-lot spacing), then bridges upper floors with a walkway graph
+// that's force-completed to stay fully traversable — see src/city.ts.
+const fCity = gui.addFolder("🏙️ walled city");
+fCity.add(cityMode, "enabled").name("enabled").onChange((v: boolean) => {
+  regenerate();
+  frameCameraForMode(v);
+});
+fCity.add(cityParams, "gridSize", 3, 12, 1).name("grid size");
+fCity.add(cityParams, "cellSize", 1.4, 4, 0.05).name("plot spacing");
+fCity.add(cityParams, "jitter", 0, 0.6, 0.01).name("plot jitter");
+fCity.add(cityParams, "floorMin", 2, 30, 1).name("floors (edge)");
+fCity.add(cityParams, "floorMax", 3, 40, 1).name("floors (core)");
+fCity.add(cityParams, "walkwayChance", 0, 1, 0.01).name("walkway chance");
+fCity.add(cityParams, "seed", 0, 999, 1).name("seed");
+fCity.onChange(() => { if (cityMode.enabled) regenerate(); });
+fCity.add(connectivityState, "readout").name("walkway network").listen().disable();
 
 // --- fps counter (debug) — a small corner overlay, updated ~twice a second ---
 const fpsState = { enabled: false };
@@ -543,6 +631,15 @@ devWindow.__setParams = p => {
   gui.controllersRecursive().forEach(c => c.updateDisplay());
   regenerate();
 };
+(devWindow as { __setCity?: (enabled: boolean, p?: Partial<CityParams>) => CityLayout | null }).__setCity =
+  (enabled, p) => {
+    cityMode.enabled = enabled;
+    if (p) Object.assign(cityParams, p);
+    gui.controllersRecursive().forEach(c => c.updateDisplay());
+    regenerate();
+    frameCameraForMode(enabled);
+    return lastCityLayout;
+  };
 devWindow.__setCamera = (px, py, pz, tx, ty, tz) => {
   controls.autoRotate = false;
   camera.position.set(px, py, pz);
