@@ -758,20 +758,51 @@ devWindow.__setEnv = s => {
   env.frame(getBounds());
 };
 
-kit.load(`${import.meta.env.BASE_URL}assets/kit.glb`, `${import.meta.env.BASE_URL}assets/kit_manifest.json`).then(() => {
-  document.getElementById("loading")?.remove();
-  // inject the wet-surface shader into the building materials once (inert while
-  // uWet = 0; the rain toggle raises it to 1). No shell geometry — it lives in the
-  // building/floor materials themselves.
-  applyWet(kit.materials.building, wetU);
-  applyWet(kit.materials.floor, wetU);
-  regenerate();
-  frameCameraForMode();
-}).catch(err => {
+// kit.glb is ~20MB — a single fetch of that size is prone to transient drops on
+// flaky mobile connections (surfaces as a bare "TypeError: Failed to fetch" with
+// no further detail), so retry a few times with backoff, then fall back to a
+// tap-to-retry affordance instead of leaving the user on a dead error screen.
+async function loadKitWithRetry(attempts = 4): Promise<void> {
   const el = document.getElementById("loading");
-  if (el) el.textContent = `FAILED TO LOAD KIT: ${err}`;
-  console.error(err);
-});
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await kit.load(`${import.meta.env.BASE_URL}assets/kit.glb`, `${import.meta.env.BASE_URL}assets/kit_manifest.json`);
+      return;
+    } catch (err) {
+      console.error(`kit load attempt ${i}/${attempts} failed`, err);
+      if (i === attempts) throw err;
+      if (el) el.textContent = `Loading asset kit… retry ${i}/${attempts - 1}`;
+      await new Promise(r => setTimeout(r, 800 * i));
+    }
+  }
+}
+
+function startKitLoad(): void {
+  loadKitWithRetry().then(() => {
+    document.getElementById("loading")?.remove();
+    // inject the wet-surface shader into the building materials once (inert while
+    // uWet = 0; the rain toggle raises it to 1). No shell geometry — it lives in the
+    // building/floor materials themselves.
+    applyWet(kit.materials.building, wetU);
+    applyWet(kit.materials.floor, wetU);
+    regenerate();
+    frameCameraForMode();
+  }).catch(err => {
+    console.error(err);
+    const el = document.getElementById("loading");
+    if (!el) return;
+    el.textContent = `FAILED TO LOAD KIT: ${err} — TAP TO RETRY`;
+    el.style.pointerEvents = "auto";
+    el.style.cursor = "pointer";
+    el.onclick = () => {
+      el.style.pointerEvents = "none";
+      el.style.cursor = "";
+      el.textContent = "Loading asset kit…";
+      startKitLoad();
+    };
+  });
+}
+startKitLoad();
 
 addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
