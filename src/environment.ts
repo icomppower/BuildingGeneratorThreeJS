@@ -1,9 +1,11 @@
 /**
- * Cinematic studio lighting rig, ported from the rain-system project:
+ * Bright daylight lighting rig for the rainbow estate (this repo's headline mode
+ * is a sunlit housing block, not a night scene) — replaces the dark cinematic
+ * night-scene preset this file was originally ported from (rain-system project):
  *   - RoomEnvironment image-based lighting (soft, neutral reflections)
- *   - warm hard key light (casts the shadows) + cool fill + warm rim spotlight
- *   - dim ambient so nothing reads pure black
- *   - dark background with light exponential fog, ACES tone mapping at exposure 0.5
+ *   - high sun key light (casts the shadows) + sky-blue fill + subtle warm rim
+ *   - bright sky-tinted ambient so the rainbow colour bands read true, not muddy
+ *   - sky-blue background with light exponential fog, ACES tone mapping at exposure 1.35
  * Light positions are fitted to the live building bounds so any size stays framed.
  */
 import {
@@ -18,22 +20,22 @@ export interface Bounds {
   radius: number;
 }
 
-const BG = 0x05060a;
+const BG = 0x6fc3ef;
 const KEY_DIR = new Vector3(8, 12, 6).normalize();
 const FILL_DIR = new Vector3(-9, 5, -4).normalize();
 const RIM_DIR = new Vector3(-6, 8, -10).normalize();
 
 export class Environment {
-  readonly key = new DirectionalLight(0xfff1dd, 3.0);   // warm, hard, shadows
-  readonly fill = new DirectionalLight(0x4a6cff, 0.6);  // cool fill
-  readonly rim = new SpotLight(0xffd9a0, 120, 50, Math.PI * 0.25, 0.4, 1.2); // warm back light
-  readonly ambient = new AmbientLight(0x223044, 0.4);
+  readonly key = new DirectionalLight(0xfff4e0, 5.5);   // high midday sun, casts shadows
+  readonly fill = new DirectionalLight(0xdff0ff, 1.8);  // sky-blue fill
+  readonly rim = new SpotLight(0xffe9c2, 40, 50, Math.PI * 0.25, 0.4, 1.2); // subtle warm edge light
+  readonly ambient = new AmbientLight(0xe8f4ff, 1.9);
 
   settings = {
-    exposure: 0.5,
-    envIntensity: 0.35,
+    exposure: 1.35,
+    envIntensity: 1.0,
     fog: true,
-    fogDensity: 0.006,
+    fogDensity: 0.0025,
   };
 
   private scene: Scene;

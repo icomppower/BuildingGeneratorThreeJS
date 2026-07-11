@@ -58,7 +58,7 @@ const FilmGradeShader = {
       col = mix(vec3(luma), col, uSaturation);
 
       // Vignette.
-      float vig = smoothstep(0.85, uVignetteSize, length(dir));
+      float vig = smoothstep(uVignetteSize, 0.85, length(dir));
       col *= 1.0 - vig * uVignette;
 
       // Animated film grain.
